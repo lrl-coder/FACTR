@@ -111,14 +111,6 @@ cam_indexes: [0, 1]
   - `cam0` 对应 `observation.image`
   - `cam1` 对应 `observation.wrist_image`
 
-另有一个对照配置：
-
-```bash
-/root/autodl-tmp/FACTR/factr/cfg/task/flexiv_pump_state_force.yaml
-```
-
-这个配置是 `obs_dim: 13`，用于测试“本体状态+力”一起输入的 ablation，不是默认 FACTR 设置。
-
 ### 4. 训练脚本
 
 路径：
@@ -257,7 +249,6 @@ conda activate factr
 
 python scripts/convert_lerobot_to_factr.py \
   --output-dir /root/autodl-fs/force_vla_data/processed_factr/debug_flexiv \
-  --obs-mode force \
   --episode-indices 0 1
 ```
 
@@ -318,17 +309,6 @@ obs.state = observation.state[7:13]
 task: flexiv_pump_force
 obs_dim: 6
 ```
-
-如果需要跑“本体+力”的对照实验，可以重新转换或使用已有 13 维 buffer，并指定：
-
-```bash
-TASK_CONFIG=flexiv_pump_state_force \
-BUFFER_PATH=/root/autodl-fs/force_vla_data/processed_factr/flexiv_pump_1bottle_inputForce/buf.pkl \
-EXP_NAME=flexiv_pump_state_force \
-bash scripts/train_flexiv_lerobot.sh
-```
-
-但这不是论文里最纯粹的 force-token 设置；它会把本体状态也混入同一个低维 token。
 
 对应代码位置：
 

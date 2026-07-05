@@ -66,16 +66,6 @@ def parse_args():
     )
     parser.add_argument("--image-size", type=int, default=256)
     parser.add_argument("--jpeg-quality", type=int, default=90)
-    parser.add_argument(
-        "--obs-mode",
-        choices=["force", "state", "proprio"],
-        default="force",
-        help=(
-            "Low-dimensional observation exported to FACTR obs.state. "
-            "'force' uses observation.state[7:13], matching FACTR's force token; "
-            "'state' uses all 13 dims; 'proprio' uses observation.state[0:7]."
-        ),
-    )
     parser.add_argument("--no-normalize", action="store_true")
     return parser.parse_args()
 
@@ -155,37 +145,13 @@ def stats_to_yaml(mean, std):
     }
 
 
-def select_obs(states, obs_mode):
-    if obs_mode == "force":
-        return states[:, 7:13]
-    if obs_mode == "proprio":
-        return states[:, 0:7]
-    if obs_mode == "state":
-        return states
-    raise ValueError(f"Unknown obs_mode: {obs_mode}")
-
-
-def obs_layout(obs_mode):
-    if obs_mode == "force":
-        return {"force": [0, 6], "source_in_observation.state": [7, 13]}
-    if obs_mode == "proprio":
-        return {"proprio": [0, 7], "source_in_observation.state": [0, 7]}
-    if obs_mode == "state":
-        return {
-            "proprio": [0, 7],
-            "force": [7, 13],
-            "source_in_observation.state": [0, 13],
-        }
-    raise ValueError(f"Unknown obs_mode: {obs_mode}")
-
-
-def read_episode(path, image_keys, image_size, jpeg_quality, obs_mode):
+def read_episode(path, image_keys, image_size, jpeg_quality):
     columns = [ACTION_KEY, STATE_KEY] + list(image_keys)
     table = pq.read_table(path, columns=columns)
     rows = table.to_pylist()
 
     states = np.asarray([row[STATE_KEY] for row in rows], dtype=np.float32)
-    obs = select_obs(states, obs_mode)
+    obs = states[:, 7:13]
     actions = np.asarray([row[ACTION_KEY] for row in rows], dtype=np.float32)
 
     enc_images_by_cam = []
@@ -242,7 +208,7 @@ def main():
     all_actions = []
     for path in tqdm(parquet_files, desc="Reading LeRobot episodes"):
         obs, actions, enc_images_by_cam = read_episode(
-            path, image_keys, args.image_size, args.jpeg_quality, args.obs_mode
+            path, image_keys, args.image_size, args.jpeg_quality
         )
         episodes.append((obs, actions, enc_images_by_cam))
         all_states.append(obs)
@@ -271,9 +237,12 @@ def main():
         "source_dataset": str(args.dataset_dir),
         "obs_config": {
             "state_key": STATE_KEY,
-            "obs_mode": args.obs_mode,
+            "obs_mode": "force",
             "camera_keys": image_keys,
-            "state_layout": obs_layout(args.obs_mode),
+            "state_layout": {
+                "force": [0, 6],
+                "source_in_observation.state": [7, 13],
+            },
         },
         "action_config": {
             "action_key": ACTION_KEY,
