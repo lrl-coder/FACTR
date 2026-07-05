@@ -85,7 +85,16 @@ def init_job(cfg):
     cfg_yaml = OmegaConf.to_yaml(cfg)
     if os.path.exists("exp_config.yaml"):
         old_config = yaml.safe_load(open("exp_config.yaml", "r"))
-        create_wandb_run(cfg.wandb, old_config["params"], old_config["wandb_id"])
+        old_wandb_id = old_config.get("wandb_id")
+        run_id = (
+            None
+            if old_wandb_id == "null_id" and not cfg.wandb.debug
+            else old_wandb_id
+        )
+        wandb_id = create_wandb_run(cfg.wandb, old_config["params"], run_id)
+        if wandb_id != old_wandb_id:
+            old_config["wandb_id"] = wandb_id
+            yaml.dump(old_config, open("exp_config.yaml", "w"))
         resume_model = "rollout/latest_ckpt.ckpt"
         if not os.path.exists(resume_model):
             resume_model = None

@@ -137,9 +137,13 @@ FEATURE_PATH=/root/autodl-tmp/FACTR/visual_features/vit_base/SOUP_1M_DH.pth
 EXP_NAME=flexiv_pump_force
 AC_CHUNK=100
 IMG_CHUNK=1
-BATCH_SIZE=128
+BATCH_SIZE=64
 NUM_WORKERS=10
 MAX_ITERATIONS=20000
+WANDB_DEBUG=False
+WANDB_ENTITY=null
+WANDB_PROJECT=factr
+WANDB_GROUP=bc
 ```
 
 可以用环境变量覆盖，例如：
@@ -154,6 +158,38 @@ MAX_ITERATIONS=50000 \
 EXP_NAME=flexiv_pump_force_v1 \
 bash scripts/train_flexiv_lerobot.sh
 ```
+
+如果要把 loss 写入 wandb，先确认已经登录：
+
+```bash
+wandb login
+```
+
+然后运行：
+
+```bash
+cd /root/autodl-tmp/FACTR
+conda activate factr
+
+WANDB_ENTITY=你的wandb用户名或team名 \
+WANDB_PROJECT=factr \
+WANDB_GROUP=bc \
+EXP_NAME=flexiv_pump_force_wandb \
+bash scripts/train_flexiv_lerobot.sh
+```
+
+wandb 中会记录：
+
+```text
+train/bc_loss
+train/lr
+train/scale
+eval/task_loss
+eval/action_l2
+eval/action_lsig
+```
+
+注意：如果同名 `EXP_NAME` 目录已经存在，FACTR 会自动从该目录的 checkpoint 续训。想开一个新的 wandb run，建议换一个新的 `EXP_NAME`。
 
 训练 checkpoint 默认保存到：
 
