@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-06-28T03:12:31.513Z",
+  "totalFiles": 1,
+  "succeeded": 1,
+  "failed": 0,
+  "skipped": 0,
+  "results": [
+    {
+      "file": "/mnt/g/force_vla_paper/Liu 等 - 2025 - FACTR Force-Attending Curriculum Training for Contact-Rich Policy Learning.pdf",
+      "status": "success",
+      "outputFiles": [
+        "/mnt/d/project/pdf2md/doc2x-output/force_vla_paper/Liu 等 - 2025 - FACTR Force-Att/Liu_等_-_2025_-_FACTR_Force-Attending_Curriculum_Training_for_Contact-Rich_Policy_Learning.md",
+        "/mnt/d/project/pdf2md/doc2x-output/force_vla_paper/Liu 等 - 2025 - FACTR Force-Att/images/0_204_526_1388_710_0.jpg",
+        "/mnt/d/project/pdf2md/doc2x-output/force_vla_paper/Liu 等 - 2025 - FACTR Force-Att/images/13_930_575_708_228_0.jpg",
+        "/mnt/d/project/pdf2md/doc2x-output/force_vla_paper/Liu 等 - 2025 - FACTR Force-Att/images/1_919_160_743_441_0.jpg",
+        "/mnt/d/project/pdf2md/doc2x-output/force_vla_paper/Liu 等 - 2025 - FACTR Force-Att/images/3_913_151_746_455_0.jpg",
+        "/mnt/d/project/pdf2md/doc2x-output/force_vla_paper/Liu 等 - 2025 - FACTR Force-Att/images/4_179_157_1455_634_0.jpg",
+        "/mnt/d/project/pdf2md/doc2x-output/force_vla_paper/Liu 等 - 2025 - FACTR Force-Att/images/6_138_156_744_904_0.jpg",
+        "/mnt/d/project/pdf2md/doc2x-output/force_vla_paper/Liu 等 - 2025 - FACTR Force-Att/images/6_910_148_756_608_0.jpg",
+        "/mnt/d/project/pdf2md/doc2x-output/force_vla_paper/Liu 等 - 2025 - FACTR Force-Att/images/7_137_157_1530_408_0.jpg",
+        "/mnt/d/project/pdf2md/doc2x-output/force_vla_paper/Liu 等 - 2025 - FACTR Force-Att/images/7_140_669_747_537_0.jpg",
+        "/mnt/d/project/pdf2md/doc2x-output/force_vla_paper/Liu 等 - 2025 - FACTR Force-Att/images/8_170_141_1455_540_0.jpg"
+      ]
+    }
+  ]
+}

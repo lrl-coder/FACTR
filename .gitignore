@@ -16,3 +16,5 @@ outputs/
 visual_features/
 processed_data/
 checkpoints/
+
+*.zip
