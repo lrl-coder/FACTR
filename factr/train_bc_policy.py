@@ -106,9 +106,10 @@ def train_bc(cfg: DictConfig):
             if misc.GLOBAL_STEP % cfg.schedule_freq == 0:
                 trainer.step_schedule()
 
-            if misc.GLOBAL_STEP % cfg.eval_freq == 0:
+            if cfg.eval_freq > 0 and misc.GLOBAL_STEP % cfg.eval_freq == 0:
                 trainer.set_eval()
-                task.eval(trainer, misc.GLOBAL_STEP)
+                if len(task.test_loader) > 0:
+                    task.eval(trainer, misc.GLOBAL_STEP)
                 trainer.set_train()
 
             if misc.GLOBAL_STEP >= cfg.max_iterations:
