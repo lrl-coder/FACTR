@@ -7,7 +7,7 @@ BUFFER_PATH=${BUFFER_PATH:-/root/autodl-fs/force_vla_data/processed_factr/flexiv
 FEATURE_PATH=${FEATURE_PATH:-$(pwd)/visual_features/vit_base/SOUP_1M_DH.pth}
 EXP_NAME=${EXP_NAME:-flexiv_pump_force}
 WANDB_DEBUG=${WANDB_DEBUG:-False}
-WANDB_ENTITY=${WANDB_ENTITY:-null}
+WANDB_ENTITY=${WANDB_ENTITY:-1559589961-northwestern-university}
 WANDB_PROJECT=${WANDB_PROJECT:-factr}
 WANDB_GROUP=${WANDB_GROUP:-bc}
 

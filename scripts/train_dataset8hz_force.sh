@@ -11,7 +11,7 @@ BUFFER_PATH=${BUFFER_PATH:-$PROJECT_DIR/processed_data/dataset_8hz_force/buf.pkl
 FEATURE_PATH=${FEATURE_PATH:-$PROJECT_DIR/visual_features/vit_base/SOUP_1M_DH.pth}
 EXP_NAME=${EXP_NAME:-dataset8hz_force}
 WANDB_DEBUG=${WANDB_DEBUG:-False}
-WANDB_ENTITY=${WANDB_ENTITY:-null}
+WANDB_ENTITY=${WANDB_ENTITY:-1559589961-northwestern-university}
 WANDB_PROJECT=${WANDB_PROJECT:-factr}
 WANDB_GROUP=${WANDB_GROUP:-bc}
 
