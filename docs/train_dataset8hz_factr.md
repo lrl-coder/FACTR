@@ -59,19 +59,30 @@ bash scripts/run_single_task_dataset8hz_force.sh
 
 ## 四个任务依次训练
 
-单张 RTX 4090 建议串行运行：
+单张 RTX 4090 使用下面一条命令串行训练：
 
 ```bash
 cd /root/autodl-tmp/FACTR
 conda activate factr
 
-for TASK_NAME in flip_box insert_plug press_button wipe_board; do
-    TASK_NAME="$TASK_NAME" \
-    AC_CHUNK=16 \
-    BATCH_SIZE=32 \
-    MAX_ITERATIONS=20000 \
-    bash scripts/run_single_task_dataset8hz_force.sh
-done
+bash scripts/run_all_tasks_dataset8hz_force.sh
+```
+
+执行顺序固定为：
+
+```text
+flip_box -> insert_plug -> press_button -> wipe_board
+```
+
+每个任务会依次完成数据转换和 20000 step 训练，然后才进入下一个任务。四个任务分别生成独立的 `buf.pkl`、checkpoint 和 wandb run；任一任务失败时脚本立即停止。
+
+覆盖默认参数：
+
+```bash
+AC_CHUNK=16 \
+BATCH_SIZE=32 \
+MAX_ITERATIONS=50000 \
+bash scripts/run_all_tasks_dataset8hz_force.sh
 ```
 
 ## 手动拆开运行
