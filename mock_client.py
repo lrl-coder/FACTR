@@ -30,6 +30,7 @@ MODEL_ACTION_CHUNK_SIZES = {
     "forceloop": 16,
     "openvla-oft": 8,
     "factr": 16,
+    "facte": 16,
     "pi0": 16,
 }
 
@@ -218,7 +219,7 @@ def _dataset_rgb(value: Any, key: str) -> np.ndarray:
 def load_dataset_samples(
     args: argparse.Namespace, chunk_size: int
 ) -> list[tuple[dict[str, Any], np.ndarray, np.ndarray, dict[str, Any]]]:
-    """Load observations and their matching future absolute-action chunks."""
+    """Load observations and future actions directly from a LeRobot 2.1 dataset."""
 
     if args.schema != "lerobot":
         raise ValueError("--dataset requires --schema=lerobot")
@@ -226,49 +227,128 @@ def load_dataset_samples(
     info_path = dataset_dir / "meta" / "info.json"
     if not info_path.is_file():
         raise FileNotFoundError(f"LeRobot dataset metadata not found: {info_path}")
-    info = json.loads(info_path.read_text())
-    fps = float(info["fps"])
+    info = json.loads(info_path.read_text(encoding="utf-8"))
+    if info.get("codebase_version") != "v2.1":
+        raise ValueError(
+            f"dataset {dataset_dir} is not LeRobot 2.1: {info.get('codebase_version')!r}"
+        )
 
-    # Optional dependency: the synthetic/self-test path still only needs NumPy,
-    # MessagePack and pyzmq.
-    from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
+    # Dataset mode has two optional dependencies. Synthetic requests still only
+    # require NumPy, MessagePack and pyzmq.
+    import cv2
+    import pyarrow.parquet as pq
 
-    dataset = LeRobotDataset(
-        args.dataset,
-        root=dataset_dir,
-        delta_timestamps={"action": [step / fps for step in range(chunk_size)]},
-        download_videos=False,
-    )
+    episodes_path = dataset_dir / "meta" / "episodes.jsonl"
+    tasks_path = dataset_dir / "meta" / "tasks.jsonl"
+    episodes = [json.loads(line) for line in episodes_path.read_text(encoding="utf-8").splitlines() if line]
+    tasks = {
+        int(record["task_index"]): str(record["task"])
+        for record in (
+            json.loads(line)
+            for line in tasks_path.read_text(encoding="utf-8").splitlines()
+            if line
+        )
+    }
+    episode_ranges = []
+    dataset_length = 0
+    for episode in episodes:
+        length = int(episode["length"])
+        episode_ranges.append((dataset_length, dataset_length + length, episode))
+        dataset_length += length
+    if dataset_length != int(info["total_frames"]):
+        raise ValueError(
+            f"episode lengths sum to {dataset_length}, metadata reports {info['total_frames']}"
+        )
+
+    def locate(index: int) -> tuple[dict[str, Any], int]:
+        for start, stop, episode in episode_ranges:
+            if start <= index < stop:
+                return episode, index - start
+        raise IndexError(f"dataset index {index} is outside [0, {dataset_length})")
+
+    def video_frame(path: Path, frame_index: int, key: str) -> np.ndarray:
+        capture = cv2.VideoCapture(str(path))
+        if not capture.isOpened():
+            raise RuntimeError(f"failed to open dataset video: {path}")
+        try:
+            capture.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
+            ok, bgr = capture.read()
+        finally:
+            capture.release()
+        if not ok:
+            raise RuntimeError(f"failed to decode {path} frame {frame_index}")
+        rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+        return _dataset_rgb(rgb, key)
+
+    data_pattern = info["data_path"]
+    video_pattern = info["video_path"]
+    chunk_capacity = int(info.get("chunks_size", 1000))
     samples = []
     for offset in range(args.count):
         index = args.dataset_index + offset * args.dataset_stride
-        if not 0 <= index < len(dataset):
-            raise IndexError(f"dataset index {index} is outside [0, {len(dataset)})")
-        item = dataset[index]
+        episode, local_index = locate(index)
+        episode_index = int(episode["episode_index"])
+        episode_chunk = episode_index // chunk_capacity
+        format_values = {
+            "episode_chunk": episode_chunk,
+            "episode_index": episode_index,
+        }
+        parquet_path = dataset_dir / data_pattern.format(**format_values)
+        table = pq.read_table(
+            parquet_path,
+            columns=[
+                "observation.state",
+                "observation.wrench_compensated",
+                "action",
+                "frame_index",
+                "episode_index",
+                "task_index",
+            ],
+        )
+        rows = table.to_pylist()
+        item = rows[local_index]
+        if int(item["frame_index"]) != local_index:
+            raise ValueError(
+                f"{parquet_path}: row {local_index} has frame_index={item['frame_index']}"
+            )
+        task_index = int(item["task_index"])
+        if task_index not in tasks:
+            raise KeyError(f"task_index {task_index} is absent from {tasks_path}")
+
+        images = {}
+        for image_key in ("observation.images.wrist", "observation.images.third_view"):
+            video_path = dataset_dir / video_pattern.format(
+                video_key=image_key,
+                **format_values,
+            )
+            images[image_key] = video_frame(video_path, local_index, image_key)
+
         obs = {
-            "observation.state": np.ascontiguousarray(_numpy(item["observation.state"]), dtype=np.float32),
+            "observation.state": np.ascontiguousarray(item["observation.state"], dtype=np.float32),
             "observation.wrench_compensated": np.ascontiguousarray(
-                _numpy(item["observation.wrench_compensated"]), dtype=np.float32
+                item["observation.wrench_compensated"], dtype=np.float32
             ),
-            "observation.images.wrist": _dataset_rgb(item["observation.images.wrist"], "observation.images.wrist"),
-            "observation.images.third_view": _dataset_rgb(
-                item["observation.images.third_view"], "observation.images.third_view"
-            ),
-            "task": str(item["task"]),
+            "observation.images.wrist": images["observation.images.wrist"],
+            "observation.images.third_view": images["observation.images.third_view"],
+            "task": tasks[task_index],
         }
         validate_observation(obs, "lerobot")
-        true_actions = np.ascontiguousarray(_numpy(item["action"]), dtype=np.float32)
-        valid_steps = ~np.asarray(_numpy(item.get("action_is_pad", np.zeros(chunk_size, bool))), dtype=bool)
-        if true_actions.shape != (chunk_size, STATE_DIM):
-            raise ValueError(
-                f"dataset action at index {index}: expected {(chunk_size, STATE_DIM)}, got {true_actions.shape}"
-            )
+        valid_count = min(chunk_size, len(rows) - local_index)
+        valid_steps = np.zeros((chunk_size,), dtype=bool)
+        valid_steps[:valid_count] = True
+        valid_actions = np.asarray(
+            [row["action"] for row in rows[local_index : local_index + valid_count]],
+            dtype=np.float32,
+        )
+        true_actions = np.empty((chunk_size, STATE_DIM), dtype=np.float32)
+        true_actions[:valid_count] = valid_actions
+        true_actions[valid_count:] = valid_actions[-1]
         sample_info = {
             "dataset": args.dataset,
             "dataset_index": index,
-            "episode_index": int(_numpy(item["episode_index"])),
-            "frame_index": int(_numpy(item["frame_index"])),
-            "task": item["task"],
+            "episode_index": episode_index,
+            "frame_index": local_index,
+            "task": tasks[task_index],
             "valid_action_steps": int(np.count_nonzero(valid_steps)),
         }
         samples.append((obs, true_actions, valid_steps, sample_info))
@@ -308,7 +388,7 @@ def validate_observation(observation: dict[str, Any], schema: str) -> None:
 
 
 def extract_action_response(response: Any) -> tuple[Any, dict[str, Any]]:
-    if isinstance(response, list | tuple) and len(response) == 2:
+    if isinstance(response, (list, tuple)) and len(response) == 2:
         actions, info = response
         return actions, info if isinstance(info, dict) else {"value": info}
     if isinstance(response, dict) and "actions" in response:
@@ -384,7 +464,7 @@ def jsonable(value: Any) -> Any:
         return value.item()
     if isinstance(value, dict):
         return {str(key): jsonable(item) for key, item in value.items()}
-    if isinstance(value, list | tuple):
+    if isinstance(value, (list, tuple)):
         return [jsonable(item) for item in value]
     return value
 
@@ -671,23 +751,32 @@ def run_requests(args: argparse.Namespace) -> int:
         },
     }
     if dataset_samples:
+        dataset_info_path = Path(args.dataset_root) / args.dataset / "meta" / "info.json"
+        dataset_info = json.loads(dataset_info_path.read_text(encoding="utf-8"))
+        action_names = dataset_info["features"]["action"].get("names")
         comparison_report: dict[str, Any] = {
             "dataset": args.dataset,
             "dataset_root": str(Path(args.dataset_root).resolve()),
             "server": f"tcp://{host}:{port}",
             "action_representation": "absolute joint positions (7) + absolute gripper command (1)",
             "action_shape": [chunk_size, STATE_DIM],
+            "action_names": action_names,
             "samples": comparison_records,
         }
     if comparison_errors:
         errors = np.concatenate(comparison_errors, axis=0)
-        comparison_report["aggregate"] = {
+        aggregate = {
             "compared_steps": int(errors.shape[0]),
             "mae": float(np.mean(np.abs(errors))),
             "rmse": float(np.sqrt(np.mean(np.square(errors)))),
             "per_dim_mae": np.mean(np.abs(errors), axis=0),
             "per_dim_rmse": np.sqrt(np.mean(np.square(errors), axis=0)),
             "bias_per_dim": np.mean(errors, axis=0),
+        }
+        comparison_report["aggregate"] = aggregate
+        summary["action_comparison"] = {
+            "action_names": action_names,
+            **aggregate,
         }
     if dataset_samples:
         output_path = Path(args.comparison_output).expanduser().resolve()
