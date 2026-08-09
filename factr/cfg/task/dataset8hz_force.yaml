@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 _target_: factr.task.BCTask
-obs_dim: 8
+obs_dim: 6
 ac_dim: 8
 cam_indexes: [0, 1]
 n_cams: ${len:${task.cam_indexes}}

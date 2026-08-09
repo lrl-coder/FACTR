@@ -6,16 +6,16 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
 CUDA_DEVICE_ID=${CUDA_DEVICE_ID:-0}
-TASK_CONFIG=${TASK_CONFIG:-dataset8hz_state}
-BUFFER_PATH=${BUFFER_PATH:-$PROJECT_DIR/processed_data/dataset_8hz_state/buf.pkl}
+TASK_CONFIG=${TASK_CONFIG:-dataset8hz_force}
+BUFFER_PATH=${BUFFER_PATH:-$PROJECT_DIR/processed_data/dataset_8hz_force/buf.pkl}
 FEATURE_PATH=${FEATURE_PATH:-$PROJECT_DIR/visual_features/vit_base/SOUP_1M_DH.pth}
-EXP_NAME=${EXP_NAME:-dataset8hz_state}
+EXP_NAME=${EXP_NAME:-dataset8hz_force}
 WANDB_DEBUG=${WANDB_DEBUG:-False}
 WANDB_ENTITY=${WANDB_ENTITY:-null}
 WANDB_PROJECT=${WANDB_PROJECT:-factr}
 WANDB_GROUP=${WANDB_GROUP:-bc}
 
-AC_CHUNK=${AC_CHUNK:-100}
+AC_CHUNK=${AC_CHUNK:-16}
 IMG_CHUNK=${IMG_CHUNK:-1}
 BATCH_SIZE=${BATCH_SIZE:-64}
 NUM_WORKERS=${NUM_WORKERS:-10}
@@ -30,7 +30,7 @@ STOP_SCALE=${STOP_SCALE:-0}
 
 if [ ! -f "$BUFFER_PATH" ]; then
   echo "Buffer not found: $BUFFER_PATH"
-  echo "Run: bash scripts/prepare_dataset8hz_state.sh"
+  echo "Run: bash scripts/prepare_dataset8hz_force.sh"
   exit 1
 fi
 

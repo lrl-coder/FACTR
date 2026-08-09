@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """Convert LeRobot 2.1 video datasets to FACTR robobuf format.
 
-This converter intentionally ignores force/wrench fields. The default low
-dimensional observation is observation.state only.
+The low-dimensional FACTR observation is the compensated 6D force/torque.
+Proprioceptive state is intentionally excluded from the model input.
 """
 
 import argparse
@@ -20,12 +20,12 @@ from robobuf.buffers import ObsWrapper, ReplayBuffer, Transition
 
 
 DEFAULT_DATASET_DIR = Path("/root/autodl-tmp/dataset-8Hz")
-DEFAULT_OUTPUT_DIR = Path("/root/autodl-tmp/FACTR/processed_data/dataset_8hz_state")
+DEFAULT_OUTPUT_DIR = Path("/root/autodl-tmp/FACTR/processed_data/dataset_8hz_force")
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Convert LeRobot 2.1 datasets to FACTR using proprio state only."
+        description="Convert LeRobot 2.1 datasets to FACTR using 6D force/torque."
     )
     parser.add_argument(
         "--dataset-dir",
@@ -42,8 +42,8 @@ def parse_args():
     parser.add_argument(
         "--obs-keys",
         nargs="+",
-        default=["observation.state"],
-        help="Low-dimensional observation columns to concatenate.",
+        default=["observation.wrench_compensated"],
+        help="Low-dimensional force/torque observation columns to concatenate.",
     )
     parser.add_argument(
         "--action-key",
@@ -158,6 +158,14 @@ def validate_features(info, obs_keys, action_key, image_keys):
         dtype = features[image_key].get("dtype")
         if dtype != "video":
             raise ValueError(f"Expected {image_key} dtype video, got {dtype}")
+
+    if obs_keys == ["observation.wrench_compensated"]:
+        force_shape = features[obs_keys[0]].get("shape")
+        if force_shape != [6]:
+            raise ValueError(f"Expected 6D force/torque, got shape {force_shape}")
+    action_shape = features[action_key].get("shape")
+    if action_shape != [8]:
+        raise ValueError(f"Expected 8D action, got shape {action_shape}")
 
 
 def read_low_dim_episode(path, obs_keys, action_key):
@@ -331,12 +339,12 @@ def main():
         "source_datasets": dataset_summaries,
         "obs_config": {
             "obs_keys": list(args.obs_keys),
-            "obs_mode": "proprio",
+            "obs_mode": "force",
             "camera_keys": list(args.image_keys),
-            "ignored_keys": ["observation.wrench_compensated"],
+            "ignored_keys": ["observation.state"],
             "state_layout": {
-                "proprio": [0, int(obs_mean.shape[0])],
-                "source_observation.state": [0, 8],
+                "force": [0, int(obs_mean.shape[0])],
+                "source_observation.wrench_compensated": [0, 6],
             },
         },
         "action_config": {
