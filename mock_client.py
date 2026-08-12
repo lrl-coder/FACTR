@@ -9,6 +9,7 @@ from datetime import datetime
 import argparse
 import io
 import json
+import os
 from pathlib import Path
 import queue
 import statistics
@@ -24,6 +25,10 @@ IMAGE_HEIGHT = 480
 IMAGE_WIDTH = 640
 STATE_DIM = 8
 WRENCH_DIM = 6
+PROJECT_ROOT = Path(__file__).resolve().parent
+DEFAULT_DATASET_ROOT = Path(
+    os.environ.get("FACTR_DATASET_ROOT", PROJECT_ROOT.parent / "dataset-8Hz")
+)
 
 MODEL_ACTION_CHUNK_SIZES = {
     "forcevla": 16,
@@ -833,7 +838,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
         choices=("flip_box", "insert_plug", "press_button", "wipe_board"),
         help="load real observations/action targets from this local LeRobot dataset",
     )
-    parser.add_argument("--dataset-root", default="/root/autodl-tmp/dataset-8Hz")
+    parser.add_argument("--dataset-root", default=str(DEFAULT_DATASET_ROOT))
     parser.add_argument(
         "--dataset-index",
         type=int,

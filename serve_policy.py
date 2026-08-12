@@ -24,10 +24,14 @@ import yaml
 import zmq
 
 
-MODEL_NAME = "FACTE"
+MODEL_NAME = "FACTR"
 ACTION_STEPS = 16
+PROJECT_ROOT = Path(__file__).resolve().parent
 DEFAULT_CHECKPOINT = Path(
-    "/root/autodl-tmp/FACTR/checkpoints/_smoke_insert_plug_force"
+    os.environ.get(
+        "FACTR_CHECKPOINT",
+        PROJECT_ROOT / "checkpoints" / "flip_box_force",
+    )
 )
 STATE_KEY = "observation.state"
 WRENCH_KEY = "observation.wrench_compensated"
@@ -227,6 +231,17 @@ def _finite_vector(value: Any, size: int, name: str) -> np.ndarray:
 
 
 def _read_action_names(rollout: Mapping[str, Any], action_dim: int) -> Tuple[str, ...]:
+    configured_names = rollout.get("action_config", {}).get("names")
+    if configured_names is not None:
+        if not isinstance(configured_names, list) or len(configured_names) != action_dim:
+            raise ConfigurationError(
+                "checkpoint action_config.names must contain {} entries".format(action_dim)
+            )
+        names = tuple(str(name) for name in configured_names)
+        if any(not name for name in names):
+            raise ConfigurationError("checkpoint action_config.names contains an empty name")
+        return names
+
     discovered = []
     for source in rollout.get("source_datasets", []):
         if not isinstance(source, dict) or "path" not in source:

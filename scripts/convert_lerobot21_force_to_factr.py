@@ -7,6 +7,7 @@ Proprioceptive state is intentionally excluded from the model input.
 
 import argparse
 import json
+import os
 import pickle
 from pathlib import Path
 
@@ -19,8 +20,11 @@ from tqdm import tqdm
 from robobuf.buffers import ObsWrapper, ReplayBuffer, Transition
 
 
-DEFAULT_DATASET_DIR = Path("/root/autodl-tmp/dataset-8Hz")
-DEFAULT_OUTPUT_DIR = Path("/root/autodl-tmp/FACTR/processed_data/dataset_8hz_force")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_DATASET_DIR = Path(
+    os.environ.get("FACTR_DATASET_ROOT", PROJECT_ROOT.parent / "dataset-8Hz")
+)
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "processed_data" / "dataset_8hz_force"
 
 
 def parse_args():
@@ -252,7 +256,6 @@ def collect_records(dataset_dirs, args):
         dataset_summaries.append(
             {
                 "name": dataset_dir.name,
-                "path": str(dataset_dir),
                 "total_episodes": int(info["total_episodes"]),
                 "total_frames": int(info["total_frames"]),
                 "fps": info.get("fps"),
@@ -305,6 +308,16 @@ def main():
     dataset_dirs = discover_dataset_dirs(args.dataset_dir, args.dataset_names)
     records, dataset_summaries = collect_records(dataset_dirs, args)
 
+    action_names = None
+    for dataset_dir in dataset_dirs:
+        names = load_info(dataset_dir)["features"][args.action_key].get("names")
+        if names is None:
+            continue
+        names = [str(name) for name in names]
+        if action_names is not None and names != action_names:
+            raise ValueError("Source datasets disagree on action joint order.")
+        action_names = names
+
     all_obs, all_actions = [], []
     for record in tqdm(records, desc="Reading low-dimensional data"):
         obs, actions = read_low_dim_episode(
@@ -350,6 +363,7 @@ def main():
         "action_config": {
             "action_key": args.action_key,
             "action_dim": int(action_mean.shape[0]),
+            "names": action_names,
         },
         "norm_stats": {
             "state": stats_to_yaml(obs_mean, obs_std),

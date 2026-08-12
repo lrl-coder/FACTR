@@ -11,6 +11,8 @@ from serve_policy import (
     ACTION_STEPS,
     ContractError,
     BackendOutputError,
+    ConfigurationError,
+    DEFAULT_CHECKPOINT,
     FakePolicyBackend,
     NumpyMsgpackCodec,
     PolicyApplication,
@@ -20,6 +22,7 @@ from serve_policy import (
     WRENCH_KEY,
     WRIST_KEY,
     ZmqPolicyServer,
+    _read_action_names,
     validate_observation,
 )
 
@@ -112,6 +115,25 @@ class ObservationContractTests(unittest.TestCase):
         observation["silently_ignored"] = np.zeros(1)
         with self.assertRaisesRegex(ContractError, "unknown observation fields"):
             validate_observation(observation)
+
+
+class PortableConfigurationTests(unittest.TestCase):
+    def test_default_checkpoint_is_relative_to_project(self):
+        self.assertEqual(DEFAULT_CHECKPOINT.parent.name, "checkpoints")
+        self.assertEqual(DEFAULT_CHECKPOINT.name, "flip_box_force")
+
+    def test_embedded_action_names_do_not_require_dataset(self):
+        names = ["joint_{}".format(index) for index in range(8)]
+        rollout = {
+            "action_config": {"action_dim": 8, "names": names},
+            "source_datasets": [{"name": "missing_dataset"}],
+        }
+        self.assertEqual(_read_action_names(rollout, 8), tuple(names))
+
+    def test_embedded_action_names_must_match_dimension(self):
+        rollout = {"action_config": {"action_dim": 8, "names": ["only_one"]}}
+        with self.assertRaisesRegex(ConfigurationError, "must contain 8 entries"):
+            _read_action_names(rollout, 8)
 
 
 class ApplicationTests(unittest.TestCase):
